@@ -23,7 +23,7 @@ class FavouriteStore:
     def load_from_json(cls):
         with open(cls.file_name, "r") as f:
             data = json.load(f)
-        store = cls()
+        fav_store = cls()
         site_cls_lookup = {
             "furaffinity": FuraffinitySite,
             "weasyl": Site,  # TODO
@@ -33,8 +33,8 @@ class FavouriteStore:
         for site_data in data["sites"]:
             site_name = site_data['name']
             site_class = site_cls_lookup.get(site_name, Site)
-            store.sites[site_name] = site_class.from_json(site_data)
-        return store
+            fav_store.sites[site_name] = site_class.from_json(site_data)
+        return fav_store
 
 
 class Site(ABC):
@@ -172,22 +172,30 @@ class Favourite:
         return fav
 
 
-if __name__ == "__main__":
-    fav_store = FavouriteStore.load_from_json()
+def print_default_stats(fav_store):
     for site in fav_store.sites.values():
-        print(f"Site: {site.name}")
-        print("Top 10 submissions")
-        top_submissions = site.get_submission_favourites_index()
-        for x in range(min(10, len(top_submissions))):
-            submission = top_submissions[x]
-            print(f"{submission['fav_count']} favs: {submission['submission'].title}")
-        print("-"*20)
-        print("Top 10 users")
-        top_users = site.get_user_favourites_index()
-        for x in range(min(10, len(top_users))):
-            user = top_users[x]
-            print(f"{user['fav_count']} favs: {user['user'].name}")
-    print(fav_store)
+        print_site(site)
+
+
+def print_site(site):
+    print(f"Site: {site.name}")
+    print("Top 10 submissions")
+    top_submissions = site.get_submission_favourites_index()
+    for x in range(min(10, len(top_submissions))):
+        submission = top_submissions[x]
+        print(f"{submission['fav_count']} favs: {submission['submission'].title}")
+    print("-"*20)
+    print("Top 10 users")
+    top_users = site.get_user_favourites_index()
+    for x in range(min(10, len(top_users))):
+        user = top_users[x]
+        print(f"{user['fav_count']} favs: {user['user'].name}")
+
+
+if __name__ == "__main__":
+    store = FavouriteStore.load_from_json()
+    print_default_stats(store)
+    print(store)
 
 
 """
