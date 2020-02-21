@@ -26,9 +26,9 @@ class FavouriteStore:
         fav_store = cls()
         site_cls_lookup = {
             "furaffinity": FuraffinitySite,
-            "weasyl": Site,  # TODO
-            "sofurry": Site,  # TODO
-            "inkbunny": Site  # TODO
+            "weasyl": WeasylSite,
+            "sofurry": SofurrySite,
+            "inkbunny": InkbunnySite
         }
         for site_data in data["sites"]:
             site_name = site_data['name']
@@ -98,7 +98,25 @@ class Site(ABC):
 class FuraffinitySite(Site):
 
     def update_favourites_and_watchers(self):
-        pass
+        pass  # TODO
+
+
+class WeasylSite(Site):
+
+    def update_favourites_and_watchers(self):
+        pass  # TODO
+
+
+class SofurrySite(Site):
+
+    def update_favourites_and_watchers(self):
+        pass  # TODO
+
+
+class InkbunnySite(Site):
+
+    def update_favourites_and_watchers(self):
+        pass  # TODO
 
 
 class User:
@@ -175,6 +193,7 @@ class Favourite:
 def print_default_stats(fav_store):
     for site in fav_store.sites.values():
         print_site(site)
+        print("-" * 40)
 
 
 def print_site(site):
@@ -184,7 +203,7 @@ def print_site(site):
     for x in range(min(10, len(top_submissions))):
         submission = top_submissions[x]
         print(f"{submission['fav_count']} favs: {submission['submission'].title}")
-    print("-"*20)
+    print("-" * 20)
     print("Top 10 users")
     top_users = site.get_user_favourites_index()
     for x in range(min(10, len(top_users))):
