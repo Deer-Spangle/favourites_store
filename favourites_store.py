@@ -49,11 +49,31 @@ class Site(ABC):
     def update_favourites_and_watchers(self):
         pass
 
-    def get_top_submissions(self, count=10):
-        pass
+    def get_submission_favourites_index(self):
+        index = []
+        for submission in self.submissions.values():
+            favourites = [fav for fav in self.favourites if fav.submission_id == submission.submission_id]
+            sort_entry = {
+                "submission": submission,
+                "favourites": favourites,
+                "fav_count": len(favourites)
+            }
+            index.append(sort_entry)
+        index_sorted = sorted(index, key=lambda x: x["fav_count"], reverse=True)
+        return index_sorted
 
-    def get_top_users(self, count=10):
-        pass
+    def get_user_favourites_index(self):
+        index = []
+        for user in self.users.values():
+            favourites = [fav for fav in self.favourites if fav.user_id == user.user_id]
+            sort_entry = {
+                "user": user,
+                "favourites": favourites,
+                "fav_count": len(favourites)
+            }
+            index.append(sort_entry)
+        index_sorted = sorted(index, key=lambda x: x["fav_count"], reverse=True)
+        return index_sorted
 
     def to_json(self):
         return {
@@ -105,6 +125,7 @@ class User:
             user.watch_date = dateutil.parser.parse(watch_date_str)
         return user
 
+
 class Submission:
 
     def __init__(self, submission_id, title):
@@ -153,6 +174,19 @@ class Favourite:
 
 if __name__ == "__main__":
     datastore = Datastore.load_from_json()
+    for site in datastore.sites.values():
+        print(f"Site: {site.name}")
+        print("Top 10 submissions")
+        top_submissions = site.get_submission_favourites_index()
+        for x in range(min(10, len(top_submissions))):
+            submission = top_submissions[x]
+            print(f"{submission['fav_count']} favs: {submission['submission'].title}")
+        print("-"*20)
+        print("Top 10 users")
+        top_users = site.get_user_favourites_index()
+        for x in range(min(10, len(top_users))):
+            user = top_users[x]
+            print(f"{user['fav_count']} favs: {user['user'].name}")
     print(datastore)
 
 
