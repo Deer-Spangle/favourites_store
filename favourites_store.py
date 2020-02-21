@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import dateutil
 
 
-class Datastore:
+class FavouriteStore:
     file_name = "fav_datastore.json"
 
     def __init__(self):
@@ -173,8 +173,8 @@ class Favourite:
 
 
 if __name__ == "__main__":
-    datastore = Datastore.load_from_json()
-    for site in datastore.sites.values():
+    fav_store = FavouriteStore.load_from_json()
+    for site in fav_store.sites.values():
         print(f"Site: {site.name}")
         print("Top 10 submissions")
         top_submissions = site.get_submission_favourites_index()
@@ -187,7 +187,7 @@ if __name__ == "__main__":
         for x in range(min(10, len(top_users))):
             user = top_users[x]
             print(f"{user['fav_count']} favs: {user['user'].name}")
-    print(datastore)
+    print(fav_store)
 
 
 """
