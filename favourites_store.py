@@ -1,6 +1,7 @@
 import json
 import re
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 import dateutil.parser
 import requests
@@ -240,8 +241,28 @@ class SofurrySite(Site):
 
 class InkbunnySite(Site):
 
-    def update_favourites_and_watchers(self):
-        pass  # TODO
+    def update_favourites_and_watchers(self, phpsessid=None):
+        notice_url = "https://inkbunny.net/portal.php"
+        headers = {"Cookie": f"PHPSESSID={phpsessid}"}
+        resp = requests.get(notice_url, headers=headers)
+        soup = BeautifulSoup(resp.content, "html.parser")
+        for favourite in soup.select(".up_noticebox_favorites"):
+            user_link = favourite.select_one("a.widget_userNameSmall")
+            user_id = user_link["href"][1:]
+            user_name = user_link.text
+            submission_id = favourite.select_one(".widget_imageFromSubmission a")["href"].lstrip("/s")
+            submission_alt = favourite.select_one(".widget_imageFromSubmission img")["alt"]
+            submission_name = " ".join(submission_alt.split(" ")[:-2])
+            fav_date_id = favourite.select_one(".searchfor_timeblocks")["id"] + "_epochtime"
+            fav_date = datetime.utcfromtimestamp(int(favourite.select_one("#" + fav_date_id).text))
+            self.mark_favourite(user_id, user_name, submission_id, submission_name, fav_date)
+        for watch in soup.select(".up_noticebox_watches"):
+            user_link = watch.select_one("a.widget_userNameSmall")
+            user_id = user_link["href"][1:]
+            user_name = user_link.text
+            watch_date_id = watch.select_one(".searchfor_timeblocks")["id"] + "_epochtime"
+            watch_date = datetime.utcfromtimestamp(int(watch.select_one("#" + watch_date_id).text))
+            self.mark_watcher(user_id, user_name, watch_date)
 
 
 class User:
@@ -373,6 +394,18 @@ def update_weasyl(site):
         print("Skipping weasyl update")
 
 
+def update_inkbunny(site):
+    print("Updating inkbunny from notifications")
+    phpsessid = input("Enter cookie PHPSESSID for inkbunny: ")
+    if phpsessid:
+        try:
+            site.update_favourites_and_watchers(phpsessid=phpsessid)
+        except Exception as e:
+            print(f"Failed to update inkbunny due to failure: {e}")
+    else:
+        print("Skipping inkbunny update")
+
+
 if __name__ == "__main__":
     store = FavouriteStore.load_from_json()
     print_default_stats(store)
@@ -381,6 +414,6 @@ if __name__ == "__main__":
             "furaffinity": update_furaffinity,
             "sofurry": update_sofurry,
             "weasyl": update_weasyl,
-            "inkbunny": lambda x: print("inkbunny update not available")  # TODO
+            "inkbunny": update_inkbunny
         }[fav_site.name](fav_site)
     print(store)
