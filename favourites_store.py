@@ -2,6 +2,7 @@ import json
 from abc import ABC, abstractmethod
 
 import dateutil
+import requests
 
 
 class FavouriteStore:
@@ -96,9 +97,45 @@ class Site(ABC):
 
 
 class FuraffinitySite(Site):
+    api_url = "https://faexport.spangle.org.uk/"
 
-    def update_favourites_and_watchers(self):
-        pass  # TODO
+    def update_favourites_and_watchers(self, cookie_a=None, cookie_b=None):
+        notifications_url = f"{self.api_url}/notifications/others.json"
+        headers = {"FA_COOKIE": f"b={cookie_b}; a={cookie_a}"}
+        resp = requests.get(notifications_url, headers=headers)
+        n_data = resp.json()
+        total_watch_count = n_data["notification_counts"]["watchers"]
+        total_fav_count = n_data["notification_counts"]["favorites"]
+        if total_watch_count != len(n_data["new_watches"]):
+            print("Can't see all watcher notifications.")
+        if total_fav_count != len(n_data["new_favorites"]):
+            print("Can't see all favourite notifications.")
+        # Add watchers
+        for new_watch in n_data["new_watches"]:
+            if new_watch["profile_name"] in self.users:
+                if self.users[new_watch["profile_name"]].is_watcher:
+                    print(f"New watch: {new_watch['name']} is already a watcher.")
+                    continue
+                print(f"New watch: Setting {new_watch['name']} as a watcher.")
+                self.users[new_watch["profile_name"]].is_watcher = True
+            else:
+                print(f"New watch: Adding user {new_watch['name']} as a new watcher.")
+                new_user = User(new_watch["profile_name"], new_watch["name"], True)
+                self.users[new_user.user_id] = new_user
+        # Add favourites
+        for new_fav in n_data["new_favorites"]:
+            if new_fav["profile_name"] not in self.users:
+                print(f"New fav: Creating user {new_fav['name']}")
+                new_user = User(new_fav["profile_name"], new_fav["name"], False)
+                self.users[new_user.user_id] = new_user
+            if new_fav["submission_id"] not in self.submissions:
+                print(f"New fav: Adding submission {new_fav['submission_name']}")
+                new_sub = Submission(new_fav["submission_id"], new_fav["submission_name"])
+                self.submissions[new_sub.submission_id] = new_sub
+            print(f"New fav: Adding favourite by {new_fav['profile_name']} on {new_fav['submission_name']}")
+            fav = Favourite(new_fav["profile_name"], new_fav["submission_id"])
+            fav.fav_date = dateutil.parser.parse(new_fav["posted_at"])
+            self.favourites.append(fav)
 
 
 class WeasylSite(Site):
@@ -211,9 +248,22 @@ def print_site(site):
         print(f"{user['fav_count']} favs: {user['user'].name}")
 
 
+def update_furaffinity(site):
+    cookie_a = input("Enter cookie A value: ")
+    cookie_b = input("Enter cookie B value: ")
+    if cookie_a and cookie_b:
+        site.update_favourites_and_watchers(cookie_a=cookie_a, cookie_b=cookie_b)
+    else:
+        print("Skipping furaffinity update")
+
+
 if __name__ == "__main__":
     store = FavouriteStore.load_from_json()
     print_default_stats(store)
+    for fav_site in store.sites:
+        {
+            "furaffinity": update_furaffinity
+        }[fav_site.name]()
     print(store)
 
 
