@@ -1,8 +1,10 @@
 import json
+import re
 from abc import ABC, abstractmethod
 
-import dateutil
+import dateutil.parser
 import requests
+from bs4 import BeautifulSoup
 
 
 class FavouriteStore:
@@ -146,8 +148,82 @@ class WeasylSite(Site):
 
 class SofurrySite(Site):
 
-    def update_favourites_and_watchers(self):
-        pass  # TODO
+    def update_favourites_and_watchers(self, phpsessid=None):
+        favs_soup = self._get_favourite_notifications(phpsessid)
+        for fav in favs_soup:
+            self._add_favourite_from_soup(fav)
+        watch_soup = self._get_watch_notifications(phpsessid)
+        for watch in watch_soup:
+            self._add_watch_from_soup(watch)
+
+    def _add_watch_from_soup(self, watch_soup):
+        watch_link = watch_soup.select("td a")[0]
+        user_id = watch_link["href"].split("://")[-1].split(".")[0]
+        user_name = watch_link["title"]
+        watch_date = watch_soup.select("td")[3].text
+        if user_id not in self.users:
+            print(f"New watch: Adding user: {user_name}")
+            user = User(user_id, user_name, True)
+            user.watch_date = dateutil.parser.parse(watch_date)
+            self.users[user_id] = user
+        else:
+            if self.users[user_id].is_watcher:
+                print(f"New watch: {user_name} is already a watcher")
+                self.users[user_id].watch_date = dateutil.parser.parse(watch_date)
+            else:
+                print(f"New watch: Setting {user_name} as a watcher.")
+                self.users[user_id].is_watcher = True
+                self.users[user_id].watch_date = dateutil.parser.parse(watch_date)
+
+    def _add_favourite_from_soup(self, fav_soup):
+        fav_links = fav_soup.select("td a")
+        user_id = fav_links[0]["href"].split("://")[-1].split(".")[0]
+        user_name = fav_links[0]["title"]
+        submission_id = fav_links[1]["href"].split("/")[-1]
+        submission_name = fav_links[1].text
+        fav_date = fav_soup.select("td")[4].text
+        if user_id not in self.users:
+            print(f"New fav: Adding user: {user_name}")
+            user = User(user_id, user_name, False)
+            self.users[user_id] = user
+        if submission_id not in self.submissions:
+            print(f"New fav: Adding submission: {submission_name}")
+            submission = Submission(submission_id, submission_name)
+            self.submissions[submission_id] = submission
+        print(f"New fav: Adding favourite by {user_name} on {submission_name}")
+        fav = Favourite(user_id, submission_id)
+        fav.fav_date = dateutil.parser.parse(fav_date)
+        self.favourites.append(fav)
+
+    def _get_watch_notifications(self, phpsessid):
+        url_base = "https://www.sofurry.com/user/notification/listWatches?Notification_page={page}"
+        print("Searching watch notifications")
+        return self._get_notifications(phpsessid, url_base)
+
+    def _get_favourite_notifications(self, phpsessid):
+        url_base = "https://www.sofurry.com/user/notification/listFavorites?Notification_page={page}"
+        print("Searching favourite notifications")
+        return self._get_notifications(phpsessid, url_base)
+
+    # noinspection PyMethodMayBeStatic
+    def _get_notifications(self, phpsessid, url_pattern):
+        page = 1
+        notifications = []
+        while page < 100:
+            url = url_pattern.format(page=page)
+            page += 1
+            resp = requests.get(url, headers={"Cookie": f"PHPSESSID={phpsessid}"})
+            soup = BeautifulSoup(resp.content, "html.parser")
+            summary = soup.select_one("#yw0 .summary")
+            if summary is None:
+                print("No notifications")
+                return []
+            new_favs = soup.select("#yw0 .items tbody tr")
+            notifications += new_favs
+            if re.search(r"Displaying \d+-(\d+) of \1 result\(s\).", summary.text):
+                return notifications
+        print("Too many pages of notifications encountered.")
+        return notifications
 
 
 class InkbunnySite(Site):
@@ -261,13 +337,25 @@ def update_furaffinity(site):
         print("Skipping furaffinity update")
 
 
+def update_sofurry(site):
+    print("Updating sofurry from notifications")
+    phpsessid = input("Enter cookie PHPSESSID value: ")
+    if phpsessid:
+        try:
+            site.update_favourites_and_watchers(phpsessid=phpsessid)
+        except Exception as e:
+            print(f"Failed to update sofurry due to failure: {e}")
+    else:
+        print("Skipping sofurry update")
+
+
 if __name__ == "__main__":
     store = FavouriteStore.load_from_json()
     print_default_stats(store)
     for fav_site in store.sites.values():
         {
             "furaffinity": update_furaffinity,
-            "sofurry": lambda x: print("sofurry update not available"),  # TODO
+            "sofurry": update_sofurry,  # TODO
             "weasyl": lambda x: print("weasyl update not available"),  # TODO
             "inkbunny": lambda x: print("inkbunny update not available")  # TODO
         }[fav_site.name](fav_site)
