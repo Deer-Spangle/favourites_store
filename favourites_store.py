@@ -249,10 +249,14 @@ def print_site(site):
 
 
 def update_furaffinity(site):
+    print("Updating furaffinity from notifications")
     cookie_a = input("Enter cookie A value: ")
     cookie_b = input("Enter cookie B value: ")
     if cookie_a and cookie_b:
-        site.update_favourites_and_watchers(cookie_a=cookie_a, cookie_b=cookie_b)
+        try:
+            site.update_favourites_and_watchers(cookie_a=cookie_a, cookie_b=cookie_b)
+        except Exception as e:
+            print(f"Failed to update furaffinity due to failure: {e}")
     else:
         print("Skipping furaffinity update")
 
@@ -263,9 +267,8 @@ if __name__ == "__main__":
     for fav_site in store.sites.values():
         {
             "furaffinity": update_furaffinity,
-            "sofurry": lambda: print("sofurry update not available"),  # TODO
-            "weasyl": lambda: print("weasyl update not available"),  # TODO
-            "inkbunny": lambda: print("inkbunny update not available")  # TODO
-        }[fav_site.name]()
+            "sofurry": lambda x: print("sofurry update not available"),  # TODO
+            "weasyl": lambda x: print("weasyl update not available"),  # TODO
+            "inkbunny": lambda x: print("inkbunny update not available")  # TODO
+        }[fav_site.name](fav_site)
     print(store)
-
