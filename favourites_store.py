@@ -161,8 +161,24 @@ class FuraffinitySite(Site):
 
 class WeasylSite(Site):
 
-    def update_favourites_and_watchers(self):
-        pass  # TODO
+    def update_favourites_and_watchers(self, wzl=None):
+        notifications_url = "https://www.weasyl.com/messages/notifications"
+        headers = {"Cookie": f"WZL={wzl}"}
+        resp = requests.get(notifications_url, headers=headers)
+        soup = BeautifulSoup(resp.content, "html.parser")
+        for follower in soup.select("#followers .item"):
+            user_id = follower.select_one("a")["href"].lstrip("/~")
+            user_name = follower.select_one("a").text
+            watch_date = dateutil.parser.parse(follower.select_one(".date").text)
+            self.mark_watcher(user_id, user_name, watch_date)
+        for favourite in soup.select("#user_favorites .item"):
+            fav_links = favourite.select("a")
+            user_id = fav_links[0]["href"].lstrip("/~")
+            user_name = fav_links[0].text
+            submission_id = fav_links[1]["href"].split("/")[2]
+            submission_name = fav_links[1].text
+            fav_date = dateutil.parser.parse(favourite.select_one(".date").text)
+            self.mark_favourite(user_id, user_name, submission_id, submission_name, fav_date)
 
 
 class SofurrySite(Site):
@@ -345,14 +361,26 @@ def update_sofurry(site):
         print("Skipping sofurry update")
 
 
+def update_weasyl(site):
+    print("Updating weasyl from notifications")
+    wzl = input("Enter cookie WZL value: ")
+    if wzl:
+        try:
+            site.update_favourites_and_watchers(wzl=wzl)
+        except Exception as e:
+            print(f"Failed to update weasyl due to failure: {e}")
+    else:
+        print("Skipping weasyl update")
+
+
 if __name__ == "__main__":
     store = FavouriteStore.load_from_json()
     print_default_stats(store)
     for fav_site in store.sites.values():
         {
             "furaffinity": update_furaffinity,
-            "sofurry": update_sofurry,  # TODO
-            "weasyl": lambda x: print("weasyl update not available"),  # TODO
+            "sofurry": update_sofurry,
+            "weasyl": update_weasyl,
             "inkbunny": lambda x: print("inkbunny update not available")  # TODO
         }[fav_site.name](fav_site)
     print(store)

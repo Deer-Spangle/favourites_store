@@ -8,9 +8,9 @@ It can then tell you the submissions which have received the most favourites, an
 It can currently scrape notifications from:
 - Furaffinity (Only the first 30 which are displayed, after that you will need to delete some, and run the scan again)
 - SoFurry
+- Weasyl
 
 And in the future it shall be able to scan:
-- Weasyl
 - Inkbunny
 
 To do these scans, you will need to pass in some cookie values from the command line. You can get these by using the storage inspector in firefox or chrome.
