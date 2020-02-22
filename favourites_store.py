@@ -53,8 +53,25 @@ class Site(ABC):
         self.favourites = set()
 
     @abstractmethod
-    def update_favourites_and_watchers(self):
+    def update_favourites_and_watchers(self, cookies):
         pass
+
+    @abstractmethod
+    def cookies_required(self):
+        pass
+
+    def get_user_input_and_update(self):
+        print(f"Updating {self.name} from notifications")
+        cookies = {}
+        for cookie in self.cookies_required():
+            cookies[cookie] = input(f"Enter cookie {cookie} value: ")
+        if all(cookies.values()):
+            try:
+                self.update_favourites_and_watchers(cookies)
+            except Exception as e:
+                print(f"Failed to update {self.name} due to failure: {e}")
+        else:
+            print(f"Skipping {self.name} update")
 
     def get_submission_favourites_index(self):
         index = []
@@ -139,9 +156,12 @@ class Site(ABC):
 class FuraffinitySite(Site):
     api_url = "https://faexport.spangle.org.uk/"
 
-    def update_favourites_and_watchers(self, cookie_a=None, cookie_b=None):
+    def cookies_required(self):
+        return ["a", "b"]
+
+    def update_favourites_and_watchers(self, cookies):
         notifications_url = f"{self.api_url}/notifications/others.json"
-        headers = {"FA_COOKIE": f"b={cookie_b}; a={cookie_a}"}
+        headers = {"FA_COOKIE": f"b={cookies['b']}; a={cookies['a']}"}
         resp = requests.get(notifications_url, headers=headers)
         n_data = resp.json()
         total_watch_count = n_data["notification_counts"]["watchers"]
@@ -170,9 +190,12 @@ class FuraffinitySite(Site):
 
 class WeasylSite(Site):
 
-    def update_favourites_and_watchers(self, wzl=None):
+    def cookies_required(self):
+        return ["WZL"]
+
+    def update_favourites_and_watchers(self, cookies):
         notifications_url = "https://www.weasyl.com/messages/notifications"
-        headers = {"Cookie": f"WZL={wzl}"}
+        headers = {"Cookie": f"WZL={cookies['WZL']}"}
         resp = requests.get(notifications_url, headers=headers)
         soup = BeautifulSoup(resp.content, "html.parser")
         for follower in soup.select("#followers .item"):
@@ -192,11 +215,14 @@ class WeasylSite(Site):
 
 class SofurrySite(Site):
 
-    def update_favourites_and_watchers(self, phpsessid=None):
-        favs_soup = self._get_favourite_notifications(phpsessid)
+    def cookies_required(self):
+        return ["PHPSESSID"]
+
+    def update_favourites_and_watchers(self, cookies):
+        favs_soup = self._get_favourite_notifications(cookies["PHPSESSID"])
         for fav in favs_soup:
             self._add_favourite_from_soup(fav)
-        watch_soup = self._get_watch_notifications(phpsessid)
+        watch_soup = self._get_watch_notifications(cookies["PHPSESSID"])
         for watch in watch_soup:
             self._add_watch_from_soup(watch)
 
@@ -249,9 +275,12 @@ class SofurrySite(Site):
 
 class InkbunnySite(Site):
 
-    def update_favourites_and_watchers(self, phpsessid=None):
+    def cookies_required(self):
+        return ["PHPSESSID"]
+
+    def update_favourites_and_watchers(self, cookies):
         notice_url = "https://inkbunny.net/portal.php"
-        headers = {"Cookie": f"PHPSESSID={phpsessid}"}
+        headers = {"Cookie": f"PHPSESSID={cookies['PHPSESSID']}"}
         resp = requests.get(notice_url, headers=headers)
         soup = BeautifulSoup(resp.content, "html.parser")
         for favourite in soup.select(".up_noticebox_favorites"):
@@ -377,63 +406,10 @@ def print_site(site):
         print(f"{user['fav_count']} favs: {user['user'].name}")
 
 
-def update_furaffinity(site):
-    print("Updating furaffinity from notifications")
-    cookie_a = input("Enter cookie A value: ")
-    cookie_b = input("Enter cookie B value: ")
-    if cookie_a and cookie_b:
-        try:
-            site.update_favourites_and_watchers(cookie_a=cookie_a, cookie_b=cookie_b)
-        except Exception as e:
-            print(f"Failed to update furaffinity due to failure: {e}")
-    else:
-        print("Skipping furaffinity update")
-
-
-def update_sofurry(site):
-    print("Updating sofurry from notifications")
-    phpsessid = input("Enter cookie PHPSESSID value: ")
-    if phpsessid:
-        try:
-            site.update_favourites_and_watchers(phpsessid=phpsessid)
-        except Exception as e:
-            print(f"Failed to update sofurry due to failure: {e}")
-    else:
-        print("Skipping sofurry update")
-
-
-def update_weasyl(site):
-    print("Updating weasyl from notifications")
-    wzl = input("Enter cookie WZL value: ")
-    if wzl:
-        try:
-            site.update_favourites_and_watchers(wzl=wzl)
-        except Exception as e:
-            print(f"Failed to update weasyl due to failure: {e}")
-    else:
-        print("Skipping weasyl update")
-
-
-def update_inkbunny(site):
-    print("Updating inkbunny from notifications")
-    phpsessid = input("Enter cookie PHPSESSID for inkbunny: ")
-    if phpsessid:
-        try:
-            site.update_favourites_and_watchers(phpsessid=phpsessid)
-        except Exception as e:
-            print(f"Failed to update inkbunny due to failure: {e}")
-    else:
-        print("Skipping inkbunny update")
-
-
 if __name__ == "__main__":
     store = FavouriteStore.load_from_json()
     print_default_stats(store)
     for fav_site in store.sites.values():
-        {
-            "furaffinity": update_furaffinity,
-            "sofurry": update_sofurry,
-            "weasyl": update_weasyl,
-            "inkbunny": update_inkbunny
-        }[fav_site.name](fav_site)
+        fav_site.get_user_input_and_update()
+    store.save_to_json()
     print(store)
