@@ -25,8 +25,11 @@ class FavouriteStore:
 
     @classmethod
     def load_from_json(cls):
-        with open(cls.file_name, "r") as f:
-            data = json.load(f)
+        try:
+            with open(cls.file_name, "r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = {"sites": []}
         fav_store = cls()
         site_cls_lookup = {
             "furaffinity": FuraffinitySite,
