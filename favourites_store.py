@@ -47,7 +47,7 @@ class Site(ABC):
         self.name = name
         self.users = {}
         self.submissions = {}
-        self.favourites = []
+        self.favourites = set()
 
     @abstractmethod
     def update_favourites_and_watchers(self):
@@ -103,10 +103,15 @@ class Site(ABC):
             print(f"New fav: Adding submission: {submission_name}")
             submission = Submission(submission_id, submission_name)
             self.submissions[submission_id] = submission
-        print(f"New fav: Adding favourite by {user_name} on {submission_name}")
         fav = Favourite(user_id, submission_id)
         fav.fav_date = fav_date
-        self.favourites.append(fav)
+        if fav in self.favourites:
+            print(f"New fav: Updating favourite by {user_name} on {submission_name}")
+            self.favourites.remove(fav)
+            self.favourites.add(fav)
+        else:
+            print(f"New fav: Adding favourite by {user_name} on {submission_name}")
+            self.favourites.add(fav)
 
     def to_json(self):
         return {
@@ -124,7 +129,7 @@ class Site(ABC):
         for sub_data in data['submissions']:
             site.submissions[sub_data['submission_id']] = Submission.from_json(sub_data)
         for fav_data in data['favourites']:
-            site.favourites.append(Favourite.from_json(fav_data))
+            site.favourites.add(Favourite.from_json(fav_data))
         return site
 
 
@@ -334,6 +339,18 @@ class Favourite:
         if fav_date_str:
             fav.fav_date = dateutil.parser.parse(fav_date_str)
         return fav
+
+    def __hash__(self):
+        return hash((self.user_id, self.submission_id))
+
+    def __eq__(self, other):
+        return \
+            isinstance(other, Favourite) \
+            and self.user_id == other.user_id \
+            and self.submission_id == other.submission_id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 def print_default_stats(fav_store):
