@@ -78,6 +78,35 @@ class Site(ABC):
         index_sorted = sorted(index, key=lambda x: x["fav_count"], reverse=True)
         return index_sorted
 
+    def mark_watcher(self, user_id, user_name, watch_date=None):
+        if user_id not in self.users:
+            print(f"New watch: Adding user: {user_name}")
+            user = User(user_id, user_name, True)
+            user.watch_date = watch_date
+            self.users[user_id] = user
+        else:
+            if self.users[user_id].is_watcher:
+                print(f"New watch: {user_name} is already a watcher")
+                self.users[user_id].watch_date = watch_date
+            else:
+                print(f"New watch: Setting {user_name} as a watcher.")
+                self.users[user_id].is_watcher = True
+                self.users[user_id].watch_date = watch_date
+
+    def mark_favourite(self, user_id, user_name, submission_id, submission_name, fav_date=None):
+        if user_id not in self.users:
+            print(f"New fav: Adding user: {user_name}")
+            user = User(user_id, user_name, False)
+            self.users[user_id] = user
+        if submission_id not in self.submissions:
+            print(f"New fav: Adding submission: {submission_name}")
+            submission = Submission(submission_id, submission_name)
+            self.submissions[submission_id] = submission
+        print(f"New fav: Adding favourite by {user_name} on {submission_name}")
+        fav = Favourite(user_id, submission_id)
+        fav.fav_date = fav_date
+        self.favourites.append(fav)
+
     def to_json(self):
         return {
             "name": self.name,
@@ -114,30 +143,20 @@ class FuraffinitySite(Site):
             print("Can't see all favourite notifications.")
         # Add watchers
         for new_watch in n_data["new_watches"]:
-            if new_watch["profile_name"] in self.users:
-                if self.users[new_watch["profile_name"]].is_watcher:
-                    print(f"New watch: {new_watch['name']} is already a watcher.")
-                    continue
-                print(f"New watch: Setting {new_watch['name']} as a watcher.")
-                self.users[new_watch["profile_name"]].is_watcher = True
-            else:
-                print(f"New watch: Adding user {new_watch['name']} as a new watcher.")
-                new_user = User(new_watch["profile_name"], new_watch["name"], True)
-                self.users[new_user.user_id] = new_user
+            self.mark_watcher(
+                new_watch["profile_name"],
+                new_watch["name"],
+                dateutil.parser.parse(new_watch["posted_at"])
+            )
         # Add favourites
         for new_fav in n_data["new_favorites"]:
-            if new_fav["profile_name"] not in self.users:
-                print(f"New fav: Creating user {new_fav['name']}")
-                new_user = User(new_fav["profile_name"], new_fav["name"], False)
-                self.users[new_user.user_id] = new_user
-            if new_fav["submission_id"] not in self.submissions:
-                print(f"New fav: Adding submission {new_fav['submission_name']}")
-                new_sub = Submission(new_fav["submission_id"], new_fav["submission_name"])
-                self.submissions[new_sub.submission_id] = new_sub
-            print(f"New fav: Adding favourite by {new_fav['profile_name']} on {new_fav['submission_name']}")
-            fav = Favourite(new_fav["profile_name"], new_fav["submission_id"])
-            fav.fav_date = dateutil.parser.parse(new_fav["posted_at"])
-            self.favourites.append(fav)
+            self.mark_favourite(
+                new_fav["profile_name"],
+                new_fav["name"],
+                new_fav["submission_id"],
+                new_fav["submission_name"],
+                dateutil.parser.parse(new_fav["posted_at"])
+            )
 
 
 class WeasylSite(Site):
@@ -160,20 +179,8 @@ class SofurrySite(Site):
         watch_link = watch_soup.select("td a")[0]
         user_id = watch_link["href"].split("://")[-1].split(".")[0]
         user_name = watch_link["title"]
-        watch_date = watch_soup.select("td")[3].text
-        if user_id not in self.users:
-            print(f"New watch: Adding user: {user_name}")
-            user = User(user_id, user_name, True)
-            user.watch_date = dateutil.parser.parse(watch_date)
-            self.users[user_id] = user
-        else:
-            if self.users[user_id].is_watcher:
-                print(f"New watch: {user_name} is already a watcher")
-                self.users[user_id].watch_date = dateutil.parser.parse(watch_date)
-            else:
-                print(f"New watch: Setting {user_name} as a watcher.")
-                self.users[user_id].is_watcher = True
-                self.users[user_id].watch_date = dateutil.parser.parse(watch_date)
+        watch_date = dateutil.parser.parse(watch_soup.select("td")[3].text)
+        self.mark_watcher(user_id, user_name, watch_date)
 
     def _add_favourite_from_soup(self, fav_soup):
         fav_links = fav_soup.select("td a")
@@ -181,19 +188,8 @@ class SofurrySite(Site):
         user_name = fav_links[0]["title"]
         submission_id = fav_links[1]["href"].split("/")[-1]
         submission_name = fav_links[1].text
-        fav_date = fav_soup.select("td")[4].text
-        if user_id not in self.users:
-            print(f"New fav: Adding user: {user_name}")
-            user = User(user_id, user_name, False)
-            self.users[user_id] = user
-        if submission_id not in self.submissions:
-            print(f"New fav: Adding submission: {submission_name}")
-            submission = Submission(submission_id, submission_name)
-            self.submissions[submission_id] = submission
-        print(f"New fav: Adding favourite by {user_name} on {submission_name}")
-        fav = Favourite(user_id, submission_id)
-        fav.fav_date = dateutil.parser.parse(fav_date)
-        self.favourites.append(fav)
+        fav_date = dateutil.parser.parse(fav_soup.select("td")[4].text)
+        self.mark_favourite(user_id, user_name, submission_id, submission_name, fav_date)
 
     def _get_watch_notifications(self, phpsessid):
         url_base = "https://www.sofurry.com/user/notification/listWatches?Notification_page={page}"
