@@ -260,7 +260,7 @@ def update_furaffinity(site):
 if __name__ == "__main__":
     store = FavouriteStore.load_from_json()
     print_default_stats(store)
-    for fav_site in store.sites:
+    for fav_site in store.sites.values():
         {
             "furaffinity": update_furaffinity,
             "sofurry": lambda: print("sofurry update not available"),  # TODO
@@ -269,9 +269,3 @@ if __name__ == "__main__":
         }[fav_site.name]()
     print(store)
 
-
-"""
-Top ten arts:
-Top ten favouriters:
-by site
-"""
