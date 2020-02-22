@@ -262,7 +262,10 @@ if __name__ == "__main__":
     print_default_stats(store)
     for fav_site in store.sites:
         {
-            "furaffinity": update_furaffinity
+            "furaffinity": update_furaffinity,
+            "sofurry": lambda: print("sofurry update not available"),  # TODO
+            "weasyl": lambda: print("weasyl update not available"),  # TODO
+            "inkbunny": lambda: print("inkbunny update not available")  # TODO
         }[fav_site.name]()
     print(store)
 
