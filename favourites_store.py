@@ -17,11 +17,11 @@ class FavouriteStore:
     def save_to_json(self):
         data = {
             "sites": [
-                site.to_json() for site in self.sites
+                site.to_json() for site in self.sites.values()
             ]
         }
         with open(self.file_name, "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
 
     @classmethod
     def load_from_json(cls):
