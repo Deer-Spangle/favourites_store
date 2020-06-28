@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -21,6 +22,20 @@ class FavouriteStore:
             ]
         }
         with open(self.file_name, "w") as f:
+            json.dump(data, f, indent=2)
+        self.save_backup(data)
+
+    @staticmethod
+    def save_backup(data):
+        today = datetime.today().date()
+        dir_name = f"backups/{today.year}/{today.month:02}"
+        os.makedirs(dir_name, exist_ok=True)
+        num = 0
+        file_name = f"fav_datastore.{today.isoformat()}-{num:03}.json"
+        while os.path.exists(f"{dir_name}/{file_name}"):
+            num += 1
+            file_name = f"fav_datastore.{today.isoformat()}-{num:03}.json"
+        with open(f"{dir_name}/{file_name}", "w") as f:
             json.dump(data, f, indent=2)
 
     @classmethod
@@ -411,5 +426,5 @@ if __name__ == "__main__":
     print_default_stats(store)
     for fav_site in store.sites.values():
         fav_site.get_user_input_and_update()
-    store.save_to_json()
+        store.save_to_json()
     print(store)
